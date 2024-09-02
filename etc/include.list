@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2023-present Peter Tuschy (foss@bofh42.de)
+
+# list extra includes
+# except for already included mountpoints
+# df --no-sync -lPT -x tmpfs -x devtmpfs | awk '/^\/dev\//''{ print $NF }'
+# you need to list all extra filesystems
+# borg create -x is used for "dont cross filesystem borders"
+
+# you can use too include.list.${type}
+

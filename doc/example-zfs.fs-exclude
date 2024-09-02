@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2023-present Peter Tuschy (foss@bofh42.de)
+
+# this is a file used to exclude zfs filesystems from listing mounts
+# it will be used like this
+# eZFSs=$(cat ${FHS}/etc/zfs.fs-exclude | grep -v -E '^#|^$' | sed -e "s|__zpool__|${SPOOL}|g" | xargs | sed -e 's|^|^|' -e 's# #|^#g')
+# /usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | egrep -v "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
+
+# this has a extra backup with extra scripts
+__zpool__/share$
+# same ^^^
+__zpool__/safe$
+# obvious
+__zpool__.*/tmp$
+__zpool__.*/temp$
+# no tv recordings in the backup
+__zpool__/tvh$
+# can be recreated
+__zpool__/kodi/thumbnails$
+# just dont do a backup
+__zpool__/foobar$
+# we should not backup borg with borg
+__zpool__.*/borg/hosts$
+__zpool__.*/borg/hosts/
