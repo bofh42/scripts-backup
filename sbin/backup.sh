@@ -75,6 +75,16 @@ else
   exit 1
 fi
 
+for i in backup.conf exclude.pattern include.list ; do
+  if [ -f "${FHS}/etc/${i}" ]; then
+    : # this is fine we have a config file
+  else
+    cp "${FHS}/lib/${i}" "${FHS}/etc/${i}" \
+      && echo "INFO: copied ${FHS}/lib/${i} to ${FHS}/etc/${i}" \
+      || exit $?
+  fi
+done
+
 ALL="$@"
 
 #
