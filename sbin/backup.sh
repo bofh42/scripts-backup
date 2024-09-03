@@ -60,8 +60,7 @@ ver_ge() { [ "$1" = "`echo -e "$1\n$2" | sort -rV | head -n1`" ]; }
 case "${run}" in
   borg)
     CFG_VER="$(borg -V | awk '/^borg /{ print $2 }')"
-    CFG_NEED="1.1.13"
-    CFG_VER12="1.2.0"
+    CFG_NEED="1.2.8"
     ;;
   *)
     echo "ERROR: this script does not support backup with \"${run}\""
@@ -226,7 +225,7 @@ if [ $? -eq 0 ]; then
 fi
 
 # this is used for create commands
-CFG_CREATE=${CFG_CREATE:- --error --exclude-if-present .nobackup --keep-exclude-tags --exclude-caches --exclude-nodump $(ver_ge $CFG_VER $CFG_VER12 || echo "--noatime")}
+CFG_CREATE=${CFG_CREATE:- --error --exclude-if-present .nobackup --keep-exclude-tags --exclude-caches --exclude-nodump}
 
 # prune config
 # hourly only runs every 4h in default cron setup
@@ -326,10 +325,8 @@ else
         [ -n "$CFG_NOT_QUIET" ] && echo "${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\""
         ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a "*.${CFG_TYPE}"
         echo "cmd: ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\"" >>/run/${run}backup-list-${CFG_S2D}
-        if ver_ge $CFG_VER $CFG_VER12 ; then
-            ${run} compact ${CFG_NOT_QUIET}
-            echo "cmd: ${run} compact ${CFG_NOT_QUIET}" >>/run/${run}backup-list-${CFG_S2D}
-        fi
+        ${run} compact ${CFG_NOT_QUIET}
+        echo "cmd: ${run} compact ${CFG_NOT_QUIET}" >>/run/${run}backup-list-${CFG_S2D}
     fi
     [ -n "$CFG_NOT_QUIET" ] && echo "${run} list >/run/${run}backup-list-${CFG_S2D}"
     ${run} list >>/run/${run}backup-list-${CFG_S2D}
