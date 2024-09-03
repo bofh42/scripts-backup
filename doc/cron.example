@@ -9,9 +9,9 @@
 RANDOM_DELAY=10
 
 # every 4 hours, but not when daily, weekly, monthly is due (solved in the script)
-1 */4 * * * root /opt/borgbackup/sbin/borgbackup-server.sh -1 -t hourly
+1 */4 * * * root /opt/scripts-backup/sbin/borgbackup.sh -1 -t hourly
 # every day, but not when weekly, monthly is due
-1 0 * * * root /opt/borgbackup/sbin/borgbackup-server.sh -1 -t daily
+1 0 * * * root /opt/scripts-backup/sbin/borgbackup.sh -1 -t daily
 # every monday, but not when monthly is due
-1 0 * * 1 root /opt/borgbackup/sbin/borgbackup-server.sh -1 -t weekly
-1 0 1 * * root /opt/borgbackup/sbin/borgbackup-server.sh -1 -t monthly
+1 0 * * 1 root /opt/scripts-backup/sbin/borgbackup.sh -1 -t weekly
+1 0 1 * * root /opt/scripts-backup/sbin/borgbackup.sh -1 -t monthly
