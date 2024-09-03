@@ -23,6 +23,7 @@
 /var/cache/cups
 /var/cache/fwupd
 /var/cache/man
+/var/cache/mock
 /var/cache/PackageKit
 /var/cache/powertop
 /var/cache/private
@@ -30,6 +31,7 @@
 /var/cache/swcatalog
 /var/cache/yum
 /var/lib/clamav
+/var/lib/mock
 /var/lock
 /var/log/lastlog
 /var/run
