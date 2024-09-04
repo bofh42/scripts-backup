@@ -87,7 +87,7 @@ scp /root/.ssh/borg_${CFG_S2D}* <where ever you want it to be save>
 this example is just for host 1
 you need cron jobs for every target host (if more then 1)
 ```
-cp /opt/scripts-backup/doc/cron.example /etc/cron.d/borgbackup
+cp /opt/scripts-backup/share/doc/cron.example /etc/cron.d/borgbackup
 # configure email address in /etc/cron.d/borgbackup
 ```
 
