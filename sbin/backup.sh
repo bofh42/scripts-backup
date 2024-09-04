@@ -86,23 +86,10 @@ done
 
 ALL="$@"
 
-#
-# getopt long
-#
-SHORT_OPTIONS="t:vile123456789"
-LONG_OPTIONS="type:,verbose,info,list,export,server:"
-# Invoke getopt; suppress its stderr initially.
-args=$(getopt -o $SHORT_OPTIONS -l $LONG_OPTIONS -n $0 -- "$@")
-if [ $? -ne 0 ]; then
-    usage
-    exit 1
-fi
-eval set -- "$args"
-
 # source host of the backup
 CFG_HOST=${CFG_HOST:-${HOSTNAME%%.*}}
 
-while true; do
+while [ -n "$1" ]; do
     case "$1" in
         -t|--type) shift
             CFG_TYPE="$1"
