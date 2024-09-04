@@ -20,6 +20,13 @@ WHERE=${SCRIPT%/*}
 FHS=${WHERE%/*}
 WHAT=${0##*/}
 run=${WHAT%backup.sh}
+
+## what is supported to run
+case "${run}" in
+  borg) : ;;
+  *)    echo "ERROR: this script does not support backup with \"${run}\""; exit 1;;
+esac
+
 need_cmd ${run}
 
 usage() {
@@ -58,14 +65,7 @@ fi
 # version check
 ver_ge() { [ "$1" = "`echo -e "$1\n$2" | sort -rV | head -n1`" ]; }
 case "${run}" in
-  borg)
-    CFG_VER="$(borg -V | awk '/^borg /{ print $2 }')"
-    CFG_NEED="1.2.8"
-    ;;
-  *)
-    echo "ERROR: this script does not support backup with \"${run}\""
-    exit 1
-    ;;
+  borg) CFG_NEED="1.2.8"; CFG_VER="$(borg -V | awk '/^borg /{ print $2 }')";;
 esac
 if ver_ge $CFG_VER $CFG_NEED ; then 
   [ -n "$debug42" ] && echo "${run} version is $CFG_VER, we need at least ${CFG_NEED}"
