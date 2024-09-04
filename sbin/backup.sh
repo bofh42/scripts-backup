@@ -21,9 +21,16 @@ FHS=${WHERE%/*}
 WHAT=${0##*/}
 run=${WHAT%backup.sh}
 
-## what is supported to run
+## what is supported to run with some config
+declare -A CFG
+declare -A CMD
 case "${run}" in
-  borg) : ;;
+  borg)
+    CFG[pass]="37"
+    CMD[verbose]="--verbose --progress"
+    CMD[info]="info"
+    CMD[list]="list"
+    ;;
   *)    echo "ERROR: this script does not support backup with \"${run}\""; exit 1;;
 esac
 
@@ -35,7 +42,7 @@ echo "usage: $0 [--server <fqdn> | -<1-9> ] --type <type> | --info | --list | --
 cat << EOF
 
     -t|--type <type>        : set backup type to hourly, daily, weekly, monthly
-    -1 up to -9             : backup target server (set in backup.conf and 1 is default)
+    -1 up to -9             : backup target server (set in ${run}.conf and 1 is default)
     --server <fqdn>         : backup target server
     -v|--verbose            : more output
     -i|--info               : just do ${run} info
@@ -74,13 +81,22 @@ else
   exit 1
 fi
 
-for i in backup.conf exclude.pattern include.list ; do
+# copy default config files
+for i in ${run}.conf exclude.pattern include.list ; do
   if [ -f "${FHS}/etc/${i}" ]; then
     : # this is fine we have a config file
   else
     cp "${FHS}/share/config/${i}" "${FHS}/etc/${i}" \
       && echo "INFO: copied ${FHS}/share/config/${i} to ${FHS}/etc/${i}" \
       || exit $?
+  fi
+done
+# check for include and exclude files
+for i in include.list exclude.pattern ; do
+  if [ ! -f "${FHS}/etc/${run}.${i}" ]; then
+    echo "ERROR: ${FHS}/etc/${run}.${i} is missing, maybe symlink it"
+    echo "       ln -s ${i} ${FHS}/etc/${run}.${i}"
+    exit 1
   fi
 done
 
@@ -96,16 +112,16 @@ while [ -n "$1" ]; do
             shift
             ;;
         -v|--verbose) shift
-            CFG_NOT_QUIET="--verbose --progress"
+            CFG_NOT_QUIET="${CMD[verbose]}"
             ;;
         -l|--list) shift
-            ONLY=list
+            ONLY="${CMD[list]}"
             ;;
         -e|--export) shift
             ONLY=export
             ;;
         -i|--info) shift
-            ONLY=info
+            ONLY="${CMD[info]}"
             ;;
         --server) shift
             CFG_DEST=$1
@@ -122,12 +138,12 @@ while [ -n "$1" ]; do
             shift
             # is there a CFG_DEST definition
             for i in CFG_DEST ${run^^}_REPO CFG_CREATE CFG_PRUNE_HOURLY CFG_PRUNE_DAILY CFG_PRUNE_WEEKLY CFG_PRUNE_MONTHLY CFG_PRUNE_YEARLY ; do
-                eval $(grep "^${i}_${CFG_NR}=" ${FHS}/etc/backup.conf | sed -E "s|^${i}_[1-9]=|${i}=|")
+                eval $(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")
                 eval CFG_WHAT=\$${i}
                 case "$i" in
                     "CFG_DEST")
                         if [ -z "$CFG_WHAT" ]; then
-                            echo "ERROR destination host CFG_DEST_${CFG_NR} not defined in ${FHS}/etc/backup.conf"
+                            echo "ERROR destination host CFG_DEST_${CFG_NR} not defined in ${FHS}/etc/${run}.conf"
                             exit 1
                         fi
                         ;;
@@ -152,14 +168,14 @@ done
 
 ## do we have a backup host
 if [ -z "$CFG_DEST" ]; then
-    eval $(grep "^CFG_DEST_1=" ${FHS}/etc/backup.conf | sed -E 's|^CFG_DEST_1=|CFG_DEST=|')
+    eval $(grep "^CFG_DEST_1=" ${FHS}/etc/${run}.conf | sed -E 's|^CFG_DEST_1=|CFG_DEST=|')
 fi
 
 # check for the target host
 if [ -z "${CFG_DEST}" ]; then
     echo ""
     echo "ERROR backup target host not defined"
-    echo "      not as CFG_DEST_1 in ${FHS}/etc/backup.conf"
+    echo "      not as CFG_DEST_1 in ${FHS}/etc/${run}.conf"
     echo "      or on command line with --server"
     show_env
     usage
@@ -190,7 +206,7 @@ if [ ! -f ${HOME}/.ssh/${CFG_KEY_PASSWORD} ]; then
     echo ""
     echo "ERROR missig ${CFG_KEY_PASSWORD}"
     echo "create with next line"
-    echo "head -c 37 /dev/urandom | base64 -w 0 > ${HOME}/.ssh/${CFG_KEY_PASSWORD} ; chmod 0400 ${HOME}/.ssh/${CFG_KEY_PASSWORD}"
+    echo "head -c ${CFG[pass]} /dev/urandom | base64 -w 0 > ${HOME}/.ssh/${CFG_KEY_PASSWORD} ; chmod 0400 ${HOME}/.ssh/${CFG_KEY_PASSWORD}"
     echo ""
     exit 1
 else
@@ -293,7 +309,8 @@ CFG_MOUNTS=()
 for i in $(df --no-sync -lPT -x tmpfs -x devtmpfs | awk '/^\/dev\//''{ print $NF }'); do
   CFG_MOUNTS+=("$i")
 done
-for include in ${FHS}/etc/include.list ${FHS}/etc/include.list.${CFG_TYPE} ; do
+# build mountpoint list
+for include in ${FHS}/etc/${run}.include.list ${FHS}/etc/${run}.include.list.${CFG_TYPE} ; do
   if [ -f "$include" ]; then
     for i in $(egrep -v '^$|^#' "$include"); do
       CFG_MOUNTS+=("$i")
@@ -302,16 +319,16 @@ for include in ${FHS}/etc/include.list ${FHS}/etc/include.list.${CFG_TYPE} ; do
 done
 
 [ -n "$CFG_NOT_QUIET" ] && echo "start ${CFG_TYPE} ${run} backup for ${CFG_HOST}"
-[ -n "$CFG_NOT_QUIET" ] && echo -e "\n${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}"
+[ -n "$CFG_NOT_QUIET" ] && echo -e "\n${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/${run}.exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}"
 
-( ${SETX} ; ${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]} )
+( ${SETX} ; ${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/${run}.exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]} )
 CFG_EXIT=$?
 
 if [ $CFG_EXIT -gt 1 ]; then
     echo "ERROR exit code $CFG_EXIT ${CFG_TYPE} ${run} backup for ${CFG_HOST} ${CFG_MOUNTS[*]}"
 else
     env | grep -E "^${run^^}_REPO|^${run^^}_RSH" | sort >/run/${run}backup-list-${CFG_S2D}
-    echo "cmd: ${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}" >>/run/${run}backup-list-${CFG_S2D}
+    echo "cmd: ${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/${run}.exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}" >>/run/${run}backup-list-${CFG_S2D}
     if [ -n "${CFG_PRUNE}" ]; then
         [ -n "$CFG_NOT_QUIET" ] && echo "${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\""
         ( ${SETX} ; ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a "*.${CFG_TYPE}" )

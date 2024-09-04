@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2024-present Peter Tuschy (foss@bofh42.de)
 
-# https://borgbackup.readthedocs.io/en/stable/usage/help.html
-# what to exclude from backup
-
 # no */tmp or */temp dir anywhere in the filesystem
 # the empty dir is in the backup
 */tmp/

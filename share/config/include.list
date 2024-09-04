@@ -5,6 +5,6 @@
 # except for already included mountpoints
 # df --no-sync -lPT -x tmpfs -x devtmpfs | awk '/^\/dev\//''{ print $NF }'
 # you need to list all extra filesystems
-# borg create -x is used for "dont cross filesystem borders"
+# -x is used for "dont cross filesystem borders"
 
 # you can use too include.list.${type}
