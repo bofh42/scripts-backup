@@ -95,7 +95,7 @@ while [ -n "$1" ]; do
             CFG_TYPE="$1"
             shift
             ;;
-        -v|--verbose|--progress) shift
+        -v|--verbose) shift
             CFG_NOT_QUIET="--verbose --progress"
             ;;
         -l|--list) shift
@@ -145,6 +145,10 @@ while [ -n "$1" ]; do
             ;;
     esac
 done
+
+## should it be quiet
+[ -z "$CFG_NOT_QUIET" ] && QUIET="--quiet"
+[ -n "$CFG_NOT_QUIET" ] && SETX=' set -x ' || SETX=' : '
 
 ## do we have a backup host
 if [ -z "$CFG_DEST" ]; then
@@ -245,7 +249,7 @@ if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
     show_env | grep ^${run^^} | sed -E 's|^|export |g ; s|=|="|g ; s|$|"|g'
     exit 0
 elif [ -n "${ONLY}" ]; then
-    ${run} ${ONLY} $@
+    ( ${SETX} ; ${run} ${ONLY} $@ )
     exit $?
 fi
 
@@ -300,7 +304,7 @@ done
 [ -n "$CFG_NOT_QUIET" ] && echo "start ${CFG_TYPE} ${run} backup for ${CFG_HOST}"
 [ -n "$CFG_NOT_QUIET" ] && echo -e "\n${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}"
 
-${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}
+( ${SETX} ; ${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]} )
 CFG_EXIT=$?
 
 if [ $CFG_EXIT -gt 1 ]; then
@@ -310,13 +314,13 @@ else
     echo "cmd: ${run} create ${CFG_NOT_QUIET} -x ${CFG_CREATE} --exclude-from ${FHS}/etc/exclude.pattern ::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE} ${CFG_MOUNTS[*]}" >>/run/${run}backup-list-${CFG_S2D}
     if [ -n "${CFG_PRUNE}" ]; then
         [ -n "$CFG_NOT_QUIET" ] && echo "${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\""
-        ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a "*.${CFG_TYPE}"
+        ( ${SETX} ; ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a "*.${CFG_TYPE}" )
         echo "cmd: ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\"" >>/run/${run}backup-list-${CFG_S2D}
-        ${run} compact ${CFG_NOT_QUIET}
+        ( ${SETX} ; ${run} compact ${CFG_NOT_QUIET} )
         echo "cmd: ${run} compact ${CFG_NOT_QUIET}" >>/run/${run}backup-list-${CFG_S2D}
     fi
     [ -n "$CFG_NOT_QUIET" ] && echo "${run} list >/run/${run}backup-list-${CFG_S2D}"
-    ${run} list >>/run/${run}backup-list-${CFG_S2D}
+    ( ${SETX} ; ${run} list >>/run/${run}backup-list-${CFG_S2D} )
 fi
 
 [ -n "$CFG_NOT_QUIET" ] && echo -e "\ndone ${CFG_TYPE} ${run} backup for ${CFG_HOST}\n"
