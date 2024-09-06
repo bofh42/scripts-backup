@@ -21,20 +21,38 @@ FHS=${WHERE%/*}
 WHAT=${0##*/}
 run=${WHAT%backup.sh}
 
+need_cmd ${run}
+
 ## what is supported to run with some config
 declare -A CFG
 declare -A CMD
+declare -A OPT
+declare -A VAR
 case "${run}" in
   borg)
+    CFG[need]="1.2.8"
+    CFG[version]="$(borg -V | awk '/^borg /{ print $2 }')"
     CFG[pass]="37"
+    CFG[create]="--error --exclude-if-present .nobackup --keep-exclude-tags --exclude-caches --exclude-nodump"
     CMD[verbose]="--verbose --progress"
     CMD[info]="info"
     CMD[list]="list"
+    VAR[repo]="BORG_REPO"
+    VAR[passcmd]="BORG_PASSCOMMAND"
+    ;;
+  restic)
+    CFG[need]="0.16.5"
+    CFG[version]="$(restic version | awk '/^restic /{ print $2 }')"
+    CFG[pass]="257"
+    CFG[create]="--exclude-if-present .nobackup --exclude-caches"
+    CMD[verbose]="--verbose"
+    CMD[info]="cat config"
+    CMD[list]="snapshots -c"
+    VAR[repo]="RESTIC_REPOSITORY"
+    VAR[passcmd]="RESTIC_PASSWORD_COMMAND"
     ;;
   *)    echo "ERROR: this script does not support backup with \"${run}\""; exit 1;;
 esac
-
-need_cmd ${run}
 
 usage() {
 echo ""
@@ -71,13 +89,10 @@ fi
 
 # version check
 ver_ge() { [ "$1" = "`echo -e "$1\n$2" | sort -rV | head -n1`" ]; }
-case "${run}" in
-  borg) CFG_NEED="1.2.8"; CFG_VER="$(borg -V | awk '/^borg /{ print $2 }')";;
-esac
-if ver_ge $CFG_VER $CFG_NEED ; then 
-  [ -n "$debug42" ] && echo "${run} version is $CFG_VER, we need at least ${CFG_NEED}"
+if ver_ge ${CFG[version]} ${CFG[need]} ; then
+  [ -n "$debug42" ] && echo "${run} version is ${CFG[version]}, we need at least ${CFG[need]}"
 else
-  echo "ERROR ${run} version $CFG_VER is less than ${CFG_NEED}"
+  echo "ERROR ${run} version ${CFG[version]} is less than ${CFG[need]}"
   exit 1
 fi
 
@@ -137,7 +152,7 @@ while [ -n "$1" ]; do
             CFG_NR=${1#-}
             shift
             # is there a CFG_DEST definition
-            for i in CFG_DEST ${run^^}_REPO CFG_CREATE CFG_PRUNE_HOURLY CFG_PRUNE_DAILY CFG_PRUNE_WEEKLY CFG_PRUNE_MONTHLY CFG_PRUNE_YEARLY ; do
+            for i in CFG_DEST ${VAR[repo]} CFG_CREATE CFG_PRUNE_HOURLY CFG_PRUNE_DAILY CFG_PRUNE_WEEKLY CFG_PRUNE_MONTHLY CFG_PRUNE_YEARLY ; do
                 eval $(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")
                 eval CFG_WHAT=\$${i}
                 case "$i" in
@@ -190,14 +205,8 @@ CFG_S2D=${CFG_HOST}2${CFG_DEST_SHORT}
 
 # where is the repo (that should be relativ)
 case "${run}" in
-  borg)
-    BORG_REPO=${BORG_REPO:-ssh://z${run}@${CFG_DEST}/~/hosts/${CFG_HOST}}
-    export BORG_REPO
-    ;;
-  *)
-    echo "ERROR: this script does not support backup with \"${run}\""
-    exit 1
-    ;;
+  borg)   export BORG_REPO=${BORG_REPO:-ssh://z${run}@${CFG_DEST}/~/hosts/${CFG_HOST}} ;;
+  restic) export RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-rclone:} ;;
 esac
 
 # do we have a password/passphrase
@@ -210,12 +219,12 @@ if [ ! -f ${HOME}/.ssh/${CFG_KEY_PASSWORD} ]; then
     echo ""
     exit 1
 else
-    export ${run^^}_PASSCOMMAND="cat ${HOME}/.ssh/${CFG_KEY_PASSWORD}"
+    export ${VAR[passcmd]}="cat ${HOME}/.ssh/${CFG_KEY_PASSWORD}"
 fi
 
 # is it a ssh repo
-eval CFG_REPO=\$${run^^}_REPO
-echo "$CFG_REPO" | grep -q '^ssh://'
+eval CFG_REPO=\$${VAR[repo]}
+echo "$CFG_REPO" | grep -Eq '^(ssh|sftp):|^rclone:$'
 if [ $? -eq 0 ]; then
     # what ssh key to use
     CFG_SSH_KEY="${run}_${CFG_S2D}"
@@ -227,12 +236,25 @@ if [ $? -eq 0 ]; then
         echo ""
         exit 1
     else
-        export ${run^^}_RSH="ssh -i ${HOME}/.ssh/${CFG_SSH_KEY}"
+        case "${run}" in
+            borg)   export BORG_RSH="ssh -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY}" ;;
+            restic)
+                if [ "$CFG_REPO" = "rclone:" ]; then
+                    # rclone without any remote/path is used for ssh with forced command
+                    USE=rclone.program
+                    OPT[${USE}]="ssh zrestic@${CFG_DEST} -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY} forced-command"
+                else
+                    # extra sftp parameter
+                    USE=sftp.command
+                    OPT[${USE}]="ssh zrestic@${CFG_DEST} -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY} -s sftp"
+                fi
+                ;;
+        esac
     fi
 fi
 
 # this is used for create commands
-CFG_CREATE=${CFG_CREATE:- --error --exclude-if-present .nobackup --keep-exclude-tags --exclude-caches --exclude-nodump}
+CFG_CREATE="${CFG_CREATE:-${CFG[create]}}"
 
 # prune config
 # hourly only runs every 4h in default cron setup
@@ -259,13 +281,21 @@ if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
     echo "# to export your ${run} config to your shell for ${run} command line use"
     echo "# execute the next line or copy & paste the ${run^^}_* line to your shell"
     echo ""
-    echo "eval \$($0 ${ALL} | egrep -v '^\$|^#|^eval')"
+    echo "eval \$($0 ${ALL} | grep '^export ')"
+    if [ ${#OPT[@]} -gt 0 ]; then
+        echo -e "\nAND define a alias like the next line\n"
+        echo "alias ${run}='/usr/bin/${run}$(for i in ${!OPT[@]} ; do echo -n " -o ${i}=\"${OPT[$i]}\"" ; done)'"
+    fi
     echo ""
     echo "export CFG_S2D=$CFG_S2D"
     show_env | grep ^${run^^} | sed -E 's|^|export |g ; s|=|="|g ; s|$|"|g'
     exit 0
 elif [ -n "${ONLY}" ]; then
-    ( ${SETX} ; ${run} ${ONLY} $@ )
+    if [ -n "${USE}" ]; then
+        ( ${SETX} ; ${run} ${ONLY} -o ${USE}="${OPT[$USE]}" "$@" )
+    else
+        ( ${SETX} ; ${run} ${ONLY} "$@" )
+    fi
     exit $?
 fi
 
