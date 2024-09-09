@@ -11,7 +11,7 @@ you can setup up to 9 target servers, but you need a cron jobs for every target 
 follow the instructions suggested for
 password an key creation when calling the following line 2 times
 ```
-/opt/scripts-backup/sbin/borgbackup.sh -1 -i
+/opt/scripts-backup/bin/borgbackup.sh -1 -i
 ```
 
 
@@ -47,7 +47,7 @@ from="<your source ip>",command="/usr/bin/borg serve --restrict-to-path ${DSTDIR
 read https://borgbackup.readthedocs.io/en/stable/usage/init.html
 ```
 # to source the config
-eval $(/opt/scripts-backup/sbin/borgbackup.sh -1 -e | egrep -v '^$|^#|^eval')
+eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | egrep -v '^$|^#|^eval')
 # now initialise repo with the encryption key on the backup server
 borg init --encryption=repokey-blake2 ::
 # or  initialise repo with the encryption key on the local system
@@ -56,7 +56,7 @@ borg init --encryption=keyfile-blake2 ::
 # (to get rid of sourced BORG_* variables)
 # login again
 # check with
-/opt/scripts-backup/sbin/borgbackup.sh -1 -i
+/opt/scripts-backup/bin/borgbackup.sh -1 -i
 # if it shows a valid archive your are done with this part
 ```
 
@@ -66,7 +66,7 @@ borg init --encryption=keyfile-blake2 ::
 # adjust /opt/scripts-backup/etc/exclude.pattern
 # adjust /opt/scripts-backup/etc/include.list
 # and now we do a backup of type hourly
-/opt/scripts-backup/sbin/borgbackup.sh -1 -t hourly -v
+/opt/scripts-backup/bin/borgbackup.sh -1 -t hourly -v
 ```
 
 
@@ -76,7 +76,7 @@ borg init --encryption=keyfile-blake2 ::
 # the passpharse you created in /root/.ssh/borg_<source>2<destination>.bb
 # the key you can export as follow
 # to source the config
-eval $(/opt/scripts-backup/sbin/borgbackup.sh -1 -e | egrep -v '^$|^#|^eval')
+eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | egrep -v '^$|^#|^eval')
 borg key export :: /root/.ssh/borg_${CFG_S2D}.key
 # now save all the files for this backup pair
 scp /root/.ssh/borg_${CFG_S2D}* <where ever you want it to be save>
@@ -87,7 +87,7 @@ scp /root/.ssh/borg_${CFG_S2D}* <where ever you want it to be save>
 this example is just for host 1
 you need cron jobs for every target host (if more then 1)
 ```
-cp /opt/scripts-backup/share/doc/cron.example /etc/cron.d/borgbackup
+cp /opt/scripts-backup/share/doc/cron.example-borg /etc/cron.d/borgbackup
 # configure email address in /etc/cron.d/borgbackup
 ```
 
@@ -95,7 +95,7 @@ cp /opt/scripts-backup/share/doc/cron.example /etc/cron.d/borgbackup
 #### on the source host daily use
 if you want to explore borg your self set the config with
 ```
-/opt/scripts-backup/sbin/borgbackup.sh -1 -e
+/opt/scripts-backup/bin/borgbackup.sh -1 -e
 # and now you can use borg with already configured environment
 env | egrep '^BORG|^CFG_'
 borg info

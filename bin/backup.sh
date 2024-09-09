@@ -319,7 +319,7 @@ case "${run}" in
     CMD[prune.weekly]="--keep-weekly ${CFG_PRUNE_WEEKLY}"
     CMD[prune.monthly]="--keep-monthly ${CFG_PRUNE_MONTHLY} --keep-yearly ${CFG_PRUNE_YEARLY}"
     CMD[tag]="::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE}"
-    CMD[extra]="${QUIET}"
+    CMD[extra]=""
     ;;
   restic)
     CMD[prune.hourly]="--tag ${CFG_TYPE} --keep-hourly ${CFG_PRUNE_HOURLY} --keep-within-hourly $((${CFG_PRUNE_HOURLY}*4))h"
