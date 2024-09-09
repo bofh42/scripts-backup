@@ -36,9 +36,8 @@ case "${run}" in
     CFG[create]="--error --exclude-if-present .nobackup --keep-exclude-tags --exclude-caches --exclude-nodump"
     CMD[verbose]="--verbose --progress"
     CMD[info]="info"
-    CMD[create]="create"
+    CMD[create]="create -x"
     CMD[list]="list"
-    CMD[exclude.file]="--exclude-from"
     VAR[repo]="BORG_REPO"
     VAR[passcmd]="BORG_PASSCOMMAND"
     ;;
@@ -49,9 +48,8 @@ case "${run}" in
     CFG[create]="--exclude-if-present .nobackup --exclude-caches"
     CMD[verbose]="--verbose"
     CMD[info]="cat config"
-    CMD[create]="backup"
+    CMD[create]="backup -x"
     CMD[list]="snapshots -c"
-    CMD[exclude.file]="--exclude-file"
     VAR[repo]="RESTIC_REPOSITORY"
     VAR[passcmd]="RESTIC_PASSWORD_COMMAND"
     ;;
@@ -314,6 +312,7 @@ fi
 # set prune, tag and other options
 case "${run}" in
   borg)
+    CMD[exclude.file]="--exclude-from ${FHS}/etc/${run}.exclude.pattern"
     CMD[prune.hourly]="--keep-hourly ${CFG_PRUNE_HOURLY}"
     CMD[prune.daily]="--keep-daily ${CFG_PRUNE_DAILY}"
     CMD[prune.weekly]="--keep-weekly ${CFG_PRUNE_WEEKLY}"
@@ -322,6 +321,7 @@ case "${run}" in
     CMD[extra]=""
     ;;
   restic)
+    CMD[exclude.file]="--exclude-file ${FHS}/etc/${run}.exclude.pattern"
     CMD[prune.hourly]="--tag ${CFG_TYPE} --keep-hourly ${CFG_PRUNE_HOURLY} --keep-within-hourly $((${CFG_PRUNE_HOURLY}*4))h"
     CMD[prune.daily]="--tag ${CFG_TYPE} --keep-daily ${CFG_PRUNE_DAILY} --keep-within-daily ${CFG_PRUNE_DAILY}d"
     CMD[prune.weekly]="--tag ${CFG_TYPE} --keep-weekly ${CFG_PRUNE_WEEKLY} --keep-within-weekly $((${CFG_PRUNE_WEEKLY}*7))d"
@@ -373,16 +373,16 @@ for include in ${FHS}/etc/${run}.include.list ${FHS}/etc/${run}.include.list.${C
 done
 
 [ -n "$CFG_NOT_QUIET" ] && echo "start ${CFG_TYPE} ${run} backup for ${CFG_HOST}"
-[ -n "$CFG_NOT_QUIET" ] && echo -e "\n${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} -x ${CFG_CREATE} ${CMD[exclude.file]} ${FHS}/etc/${run}.exclude.pattern ${CMD[tag]} ${CFG_MOUNTS[*]}"
+[ -n "$CFG_NOT_QUIET" ] && echo -e "\n${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}"
 
-( ${SETX} ; ${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} -x ${CFG_CREATE} ${CMD[exclude.file]} ${FHS}/etc/${run}.exclude.pattern ${CMD[tag]} ${CFG_MOUNTS[*]} )
+( ${SETX} ; ${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]} )
 CFG_EXIT=$?
 
 if [ $CFG_EXIT -gt 1 ]; then
     echo "ERROR exit code $CFG_EXIT ${CFG_TYPE} ${run} backup for ${CFG_HOST} ${CFG_MOUNTS[*]}"
 else
     env | grep -E "^${run^^}_REPO|^${run^^}_RSH" | sort >/run/${run}backup-list-${CFG_S2D}
-    echo "cmd: ${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} -x ${CFG_CREATE} ${CMD[exclude.file]} ${FHS}/etc/${run}.exclude.pattern ${CMD[tag]} ${CFG_MOUNTS[*]}" >>/run/${run}backup-list-${CFG_S2D}
+    echo "cmd: ${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}" >>/run/${run}backup-list-${CFG_S2D}
     if [ -n "${CFG_PRUNE}" ]; then
         [ -n "$CFG_NOT_QUIET" ] && echo "${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\""
         ( ${SETX} ; ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a "*.${CFG_TYPE}" )
