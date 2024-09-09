@@ -38,6 +38,8 @@ case "${run}" in
     CMD[info]="info"
     CMD[create]="create -x"
     CMD[list]="list"
+    CMD[forget]="prune"
+    CMD[compact]="compact"
     VAR[repo]="BORG_REPO"
     VAR[passcmd]="BORG_PASSCOMMAND"
     ;;
@@ -50,6 +52,8 @@ case "${run}" in
     CMD[info]="cat config"
     CMD[create]="backup -x"
     CMD[list]="snapshots -c"
+    CMD[forget]="forget"
+    CMD[compact]="prune"
     VAR[repo]="RESTIC_REPOSITORY"
     VAR[passcmd]="RESTIC_PASSWORD_COMMAND"
     ;;
@@ -154,7 +158,7 @@ while [ -n "$1" ]; do
             CFG_NR=${1#-}
             shift
             # is there a CFG_DEST definition
-            for i in CFG_DEST ${VAR[repo]} CFG_CREATE CFG_PRUNE_HOURLY CFG_PRUNE_DAILY CFG_PRUNE_WEEKLY CFG_PRUNE_MONTHLY CFG_PRUNE_YEARLY ; do
+            for i in CFG_DEST ${VAR[repo]} CFG_CREATE CFG_FORGET_HOURLY CFG_FORGET_DAILY CFG_FORGET_WEEKLY CFG_FORGET_MONTHLY CFG_FORGET_YEARLY ; do
                 eval $(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")
                 eval CFG_WHAT=\$${i}
                 case "$i" in
@@ -258,14 +262,13 @@ fi
 # this is used for create commands
 CFG_CREATE="${CFG_CREATE:-${CFG[create]}}"
 
-# prune config
 # hourly only runs every 4h in default cron setup
-CFG_PRUNE_HOURLY=${CFG_PRUNE_HOURLY:-13}
-CFG_PRUNE_DAILY=${CFG_PRUNE_DAILY:-8}
-CFG_PRUNE_WEEKLY=${CFG_PRUNE_WEEKLY:-6}
-CFG_PRUNE_MONTHLY=${CFG_PRUNE_MONTHLY:-18}
+CFG_FORGET_HOURLY=${CFG_FORGET_HOURLY:-13}
+CFG_FORGET_DAILY=${CFG_FORGET_DAILY:-8}
+CFG_FORGET_WEEKLY=${CFG_FORGET_WEEKLY:-6}
+CFG_FORGET_MONTHLY=${CFG_FORGET_MONTHLY:-18}
 # only monthly backups will be used as yearly, there is no extra yearly backup type
-CFG_PRUNE_YEARLY=${CFG_PRUNE_YEARLY:-3}
+CFG_FORGET_YEARLY=${CFG_FORGET_YEARLY:-3}
 
 
 # cache in /var/cache at least for root
@@ -309,52 +312,49 @@ if [ -z "$CFG_DEST" -o -z "$CFG_HOST" -o -z "$CFG_TYPE" -o -z "$CFG_REPO" ]; the
     exit 2
 fi
 
-# set prune, tag and other options
+# set forget, tag and other options
 case "${run}" in
   borg)
     CMD[exclude.file]="--exclude-from ${FHS}/etc/${run}.exclude.pattern"
-    CMD[prune.hourly]="--keep-hourly ${CFG_PRUNE_HOURLY}"
-    CMD[prune.daily]="--keep-daily ${CFG_PRUNE_DAILY}"
-    CMD[prune.weekly]="--keep-weekly ${CFG_PRUNE_WEEKLY}"
-    CMD[prune.monthly]="--keep-monthly ${CFG_PRUNE_MONTHLY} --keep-yearly ${CFG_PRUNE_YEARLY}"
+    CMD[forget.hourly]="--keep-hourly ${CFG_FORGET_HOURLY} -a *.hourly"
+    CMD[forget.daily]="--keep-daily ${CFG_FORGET_DAILY} -a *.daily"
+    CMD[forget.weekly]="--keep-weekly ${CFG_FORGET_WEEKLY} -a *.weekly"
+    CMD[forget.monthly]="--keep-monthly ${CFG_FORGET_MONTHLY} --keep-yearly ${CFG_FORGET_YEARLY} -a *.monthly"
     CMD[tag]="::{now:%Y-%m-%dT%H:%M}.${CFG_TYPE}"
     CMD[extra]=""
     ;;
   restic)
     CMD[exclude.file]="--exclude-file ${FHS}/etc/${run}.exclude.pattern"
-    CMD[prune.hourly]="--tag ${CFG_TYPE} --keep-hourly ${CFG_PRUNE_HOURLY} --keep-within-hourly $((${CFG_PRUNE_HOURLY}*4))h"
-    CMD[prune.daily]="--tag ${CFG_TYPE} --keep-daily ${CFG_PRUNE_DAILY} --keep-within-daily ${CFG_PRUNE_DAILY}d"
-    CMD[prune.weekly]="--tag ${CFG_TYPE} --keep-weekly ${CFG_PRUNE_WEEKLY} --keep-within-weekly $((${CFG_PRUNE_WEEKLY}*7))d"
-    CMD[prune.monthly]="--tag ${CFG_TYPE} --keep-monthly ${CFG_PRUNE_MONTHLY} --keep-within-monthly ${CFG_PRUNE_MONTHLY}m --keep-yearly ${CFG_PRUNE_YEARLY} --keep-within-yearly ${CFG_PRUNE_YEARLY}y"
+    CMD[forget.hourly]="--host ${CFG_HOST} --tag hourly --keep-hourly ${CFG_FORGET_HOURLY} --keep-within-hourly $((${CFG_FORGET_HOURLY}*4))h"
+    CMD[forget.daily]="--host ${CFG_HOST} --tag daily --keep-daily ${CFG_FORGET_DAILY} --keep-within-daily ${CFG_FORGET_DAILY}d"
+    CMD[forget.weekly]="--host ${CFG_HOST} --tag weekly --keep-weekly ${CFG_FORGET_WEEKLY} --keep-within-weekly $((${CFG_FORGET_WEEKLY}*7))d"
+    CMD[forget.monthly]="--host ${CFG_HOST} --tag monthly --keep-monthly ${CFG_FORGET_MONTHLY} --keep-within-monthly ${CFG_FORGET_MONTHLY}m --keep-yearly ${CFG_FORGET_YEARLY} --keep-within-yearly ${CFG_FORGET_YEARLY}y"
     CMD[tag]="--host ${CFG_HOST} --tag ${CFG_TYPE}"
     CMD[extra]="${QUIET}"
     ;;
 esac
 
 # what type of backup is it
+CFG_FORGET="${CMD[forget.${CFG_TYPE}]}"
 case "${CFG_TYPE}" in
     hourly)
         # dont run at midnight
         if [ "$(date +%H)" = "00" ]; then exit 0 ; fi
-        CFG_PRUNE="${CMD[prune.${CFG_TYPE}]}"
         ;;
     daily)
         # dont run on the 01 day in the month
         if [ "$(date +%d)" = "01" ]; then exit 0 ; fi
         # dont run on monday
         if [ "$(date +%w)" = "1" ]; then exit 0 ; fi
-        CFG_PRUNE="${CMD[prune.${CFG_TYPE}]}"
         ;;
     weekly)
         # dont run on the 01 day in the month
         if [ "$(date +%d)" = "01" ]; then exit 0 ; fi
-        CFG_PRUNE="${CMD[prune.${CFG_TYPE}]}"
         ;;
     monthly)
-        CFG_PRUNE="${CMD[prune.${CFG_TYPE}]}"
         ;;
     *)
-        CFG_PRUNE=
+        CFG_FORGET=
         ;;
 esac
 
@@ -372,26 +372,42 @@ for include in ${FHS}/etc/${run}.include.list ${FHS}/etc/${run}.include.list.${C
   fi
 done
 
-[ -n "$CFG_NOT_QUIET" ] && echo "start ${CFG_TYPE} ${run} backup for ${CFG_HOST}"
-[ -n "$CFG_NOT_QUIET" ] && echo -e "\n${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}"
+run_command() {
+  if [ -n "${USE}" ]; then
+    ( ${SETX} ; ${run} -o ${USE}="${OPT[$USE]}" "$@" )
+  else
+    ( ${SETX} ; ${run} "$@" )
+  fi
+  return $?
+}
 
-( ${SETX} ; ${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]} )
-CFG_EXIT=$?
+log_command() {
+  if [ -n "${USE}" ]; then
+    echo "cmd: ${run} -o ${USE}=\"${OPT[$USE]}\" $@" >>/run/${run}backup-list-${CFG_S2D}
+  else
+    echo "cmd: ${run} $@" >>/run/${run}backup-list-${CFG_S2D}
+  fi
+}
 
-if [ $CFG_EXIT -gt 1 ]; then
-    echo "ERROR exit code $CFG_EXIT ${CFG_TYPE} ${run} backup for ${CFG_HOST} ${CFG_MOUNTS[*]}"
+[ -n "$CFG_NOT_QUIET" ] && echo "start ${run} backup type ${CFG_TYPE} for ${CFG_HOST}"
+
+run_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
+RUN_EXIT=$?
+
+if [ $RUN_EXIT -gt 1 ]; then
+    echo "ERROR: exit code $RUN_EXIT ${run} backup type ${CFG_TYPE} for ${CFG_HOST} ${CFG_MOUNTS[*]}"
 else
     env | grep -E "^${run^^}_REPO|^${run^^}_RSH" | sort >/run/${run}backup-list-${CFG_S2D}
-    echo "cmd: ${run} ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}" >>/run/${run}backup-list-${CFG_S2D}
-    if [ -n "${CFG_PRUNE}" ]; then
-        [ -n "$CFG_NOT_QUIET" ] && echo "${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\""
-        ( ${SETX} ; ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a "*.${CFG_TYPE}" )
-        echo "cmd: ${run} prune ${CFG_NOT_QUIET} ${CFG_PRUNE} -a \"*.${CFG_TYPE}\"" >>/run/${run}backup-list-${CFG_S2D}
-        ( ${SETX} ; ${run} compact ${CFG_NOT_QUIET} )
-        echo "cmd: ${run} compact ${CFG_NOT_QUIET}" >>/run/${run}backup-list-${CFG_S2D}
+    log_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
+    if [ -n "${CFG_FORGET}" ]; then
+        log_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
+        run_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
+        if [ "${CFG_TYPE}" = "monthly" ]; then
+            log_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
+            run_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
+        fi
     fi
-    [ -n "$CFG_NOT_QUIET" ] && echo "${run} list >/run/${run}backup-list-${CFG_S2D}"
-    ( ${SETX} ; ${run} list >>/run/${run}backup-list-${CFG_S2D} )
+    run_command ${CMD[list]} >>/run/${run}backup-list-${CFG_S2D}
 fi
 
 [ -n "$CFG_NOT_QUIET" ] && echo -e "\ndone ${CFG_TYPE} ${run} backup for ${CFG_HOST}\n"
