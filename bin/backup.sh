@@ -38,6 +38,7 @@ case "${run}" in
     CMD[info]="info"
     CMD[create]="create -x"
     CMD[list]="list"
+    CMD[mount]="mount --foreground :: /mnt/${run}backup"
     CMD[forget]="prune"
     CMD[compact]="compact"
     VAR[repo]="BORG_REPO"
@@ -52,6 +53,7 @@ case "${run}" in
     CMD[info]="cat config"
     CMD[create]="backup -x"
     CMD[list]="snapshots -c"
+    CMD[mount]="mount /mnt/${run}backup"
     CMD[forget]="forget"
     CMD[compact]="prune"
     VAR[repo]="RESTIC_REPOSITORY"
@@ -62,7 +64,7 @@ esac
 
 usage() {
 echo ""
-echo "usage: $0 [--server <fqdn> | -<1-9> ] --type <type> | --info | --list | --export [--verbose]"
+echo "usage: $0 [--server <fqdn> | -<1-9> ] --type <type> | --info | --list | --mount | --export [--verbose]"
 cat << EOF
 
     -t|--type <type>        : set backup type to hourly, daily, weekly, monthly
@@ -71,6 +73,7 @@ cat << EOF
     -v|--verbose            : more output
     -i|--info               : just do ${run} info
     -l|--list               : just do ${run} list
+    -m|--mount              : mount ${run} backup repo to /mnt/${run}backup
     -e|--export             : export setting to use ${run} on command line
 
 EOF
@@ -86,6 +89,23 @@ show_env() {
         echo "backup type      \$CFG_TYPE   : $CFG_TYPE"
     fi
     echo ""
+}
+
+run_command() {
+  if [ -n "${USE}" ]; then
+    ( ${SETX} ; ${run} -o ${USE}="${OPT[$USE]}" "$@" )
+  else
+    ( ${SETX} ; ${run} "$@" )
+  fi
+  return $?
+}
+
+log_command() {
+  if [ -n "${USE}" ]; then
+    echo "cmd: ${run} -o ${USE}=\"${OPT[$USE]}\" $@" >>/run/${run}backup-list-${CFG_S2D}
+  else
+    echo "cmd: ${run} $@" >>/run/${run}backup-list-${CFG_S2D}
+  fi
 }
 
 if [ $# -lt 1 ] ; then
@@ -137,6 +157,12 @@ while [ -n "$1" ]; do
             ;;
         -l|--list) shift
             ONLY="${CMD[list]}"
+            ;;
+        -m|--mount) shift
+            ONLY="${CMD[mount]}"
+            [ -d "/mnt/${run}backup" ] || mkdir /mnt/${run}backup || exit $?
+            # force verbose
+            CFG_NOT_QUIET="${CMD[verbose]}"
             ;;
         -e|--export) shift
             ONLY=export
@@ -294,14 +320,10 @@ if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
     fi
     echo ""
     echo "export CFG_S2D=$CFG_S2D"
-    show_env | grep ^${run^^} | sed -E 's|^|export |g ; s|=|="|g ; s|$|"|g'
+    show_env | grep ^${run^^} | sed -E 's|^|export |g ; s|=|="| ; s|$|"|g'
     exit 0
 elif [ -n "${ONLY}" ]; then
-    if [ -n "${USE}" ]; then
-        ( ${SETX} ; ${run} ${ONLY} -o ${USE}="${OPT[$USE]}" "$@" )
-    else
-        ( ${SETX} ; ${run} ${ONLY} "$@" )
-    fi
+    run_command ${ONLY} ${CFG_NOT_QUIET} "$@"
     exit $?
 fi
 
@@ -324,7 +346,9 @@ case "${run}" in
     CMD[extra]=""
     ;;
   restic)
-    CMD[exclude.file]="--exclude-file ${FHS}/etc/${run}.exclude.pattern"
+    # dirty workaround for fuse that root cant read
+    mount | awk '/ fuse\./{ print $3 }' >/run/${run}backup-exclude-fuse
+    CMD[exclude.file]="--exclude-file ${FHS}/etc/${run}.exclude.pattern --exclude-file /run/${run}backup-exclude-fuse"
     CMD[forget.hourly]="--host ${CFG_HOST} --tag hourly --keep-hourly ${CFG_FORGET_HOURLY} --keep-within-hourly $((${CFG_FORGET_HOURLY}*4))h"
     CMD[forget.daily]="--host ${CFG_HOST} --tag daily --keep-daily ${CFG_FORGET_DAILY} --keep-within-daily ${CFG_FORGET_DAILY}d"
     CMD[forget.weekly]="--host ${CFG_HOST} --tag weekly --keep-weekly ${CFG_FORGET_WEEKLY} --keep-within-weekly $((${CFG_FORGET_WEEKLY}*7))d"
@@ -372,22 +396,6 @@ for include in ${FHS}/etc/${run}.include.list ${FHS}/etc/${run}.include.list.${C
   fi
 done
 
-run_command() {
-  if [ -n "${USE}" ]; then
-    ( ${SETX} ; ${run} -o ${USE}="${OPT[$USE]}" "$@" )
-  else
-    ( ${SETX} ; ${run} "$@" )
-  fi
-  return $?
-}
-
-log_command() {
-  if [ -n "${USE}" ]; then
-    echo "cmd: ${run} -o ${USE}=\"${OPT[$USE]}\" $@" >>/run/${run}backup-list-${CFG_S2D}
-  else
-    echo "cmd: ${run} $@" >>/run/${run}backup-list-${CFG_S2D}
-  fi
-}
 
 [ -n "$CFG_NOT_QUIET" ] && echo "start ${run} backup type ${CFG_TYPE} for ${CFG_HOST}"
 
@@ -402,7 +410,10 @@ else
     if [ -n "${CFG_FORGET}" ]; then
         log_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
         run_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
-        if [ "${CFG_TYPE}" = "monthly" ]; then
+        RUN_EXIT=$?
+        if [ $RUN_EXIT -gt 1 ]; then
+            [ -n "$CFG_NOT_QUIET" ] && echo "WARN: exit code $RUN_EXIT ${run} ${CMD[forget]} for ${CFG_HOST} (maybe append only repo)"
+        elif [ "${CFG_TYPE}" = "monthly" ]; then
             log_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
             run_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
         fi

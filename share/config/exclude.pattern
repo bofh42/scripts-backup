@@ -12,6 +12,7 @@
 /run
 /srv
 /sys
+/tmp
 
 # less from /var
 /var/cache/apt
