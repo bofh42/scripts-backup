@@ -50,7 +50,7 @@ case "${run}" in
     CFG[pass]="257"
     CFG[create]="--exclude-if-present .nobackup --exclude-caches"
     CMD[verbose]="--verbose"
-    CMD[info]="cat config"
+    CMD[info]="stats"
     CMD[create]="backup -x"
     CMD[list]="snapshots -c"
     CMD[mount]="mount /mnt/${run}backup"
@@ -186,6 +186,7 @@ while [ -n "$1" ]; do
             # is there a CFG_DEST definition
             for i in CFG_DEST ${VAR[repo]} CFG_CREATE CFG_FORGET_HOURLY CFG_FORGET_DAILY CFG_FORGET_WEEKLY CFG_FORGET_MONTHLY CFG_FORGET_YEARLY ; do
                 eval $(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")
+                [ -n "$debug42" ] && echo "$(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")"
                 eval CFG_WHAT=\$${i}
                 case "$i" in
                     "CFG_DEST")

@@ -1,0 +1,17 @@
+
+# i strongly suggest to set a emailadress
+# MAILTO=your@domain.tld
+
+# The RANDOM_DELAY variable allows delaying job startups by random amount of 
+# minutes with upper limit specified by the variable. The random scaling 
+# factor is determined during the cron daemon startup so it remains constant
+# for the whole run time of the daemon.
+RANDOM_DELAY=10
+
+# every 4 hours, but not when daily, weekly, monthly is due (solved in the script)
+1 */4 * * * root /opt/scripts-backup/bin/resticbackup.sh -1 -t hourly
+# every day, but not when weekly, monthly is due
+1 0 * * * root /opt/scripts-backup/bin/resticbackup.sh -1 -t daily
+# every monday, but not when monthly is due
+1 0 * * 1 root /opt/scripts-backup/bin/resticbackup.sh -1 -t weekly
+1 0 1 * * root /opt/scripts-backup/bin/resticbackup.sh -1 -t monthly
