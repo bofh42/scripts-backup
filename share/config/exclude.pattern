@@ -2,7 +2,6 @@
 # Copyright (C) 2024-present Peter Tuschy (foss@bofh42.de)
 
 # no */tmp or */temp dir anywhere in the filesystem
-# the empty dir is in the backup
 */tmp/
 */temp/
 
@@ -34,10 +33,15 @@
 /var/log/lastlog
 /var/run
 /var/spool/postfix
+/var/tmp
 
-# no backup of container storage / cache
-/var/lib/containers/
-/home/*/.local/share/containers/
+# no backup of container
+# /var/lib/containers/
+# /home/*/.local/share/containers/
+
+# no backup of flatpak
+# /var/lib/flatpak/
+# /home/*/.local/share/flatpak/
 
 # exclude from /home
 /root/.cache

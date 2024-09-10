@@ -19,6 +19,12 @@ __zpool__/tvh$
 __zpool__/kodi/thumbnails$
 # just dont do a backup
 __zpool__/foobar$
-# we should not backup borg with borg
+# we should not backup borg or restic repos
 __zpool__.*/borg/hosts$
 __zpool__.*/borg/hosts/
+__zpool__.*/borg/repos$
+__zpool__.*/borg/repos/
+__zpool__.*/restic/hosts$
+__zpool__.*/restic/hosts/
+__zpool__.*/restic/repos$
+__zpool__.*/restic/repos/
