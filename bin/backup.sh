@@ -388,8 +388,13 @@ CFG_MOUNTS=()
 for i in $(df --no-sync -lPT -x tmpfs -x devtmpfs | awk '/^\/dev\//''{ print $NF }'); do
   CFG_MOUNTS+=("$i")
 done
-# build mountpoint list
-for include in ${FHS}/etc/${run}.include.list ${FHS}/etc/${run}.include.list.${CFG_TYPE} ; do
+# build mountpoint list (ToDo filter duplicate)
+INCLUDE=()
+INCLUDE+=("${FHS}/etc/include.list")
+INCLUDE+=("${FHS}/etc/include.list.${CFG_TYPE}")
+INCLUDE+=("${FHS}/etc/${run}.include.list")
+INCLUDE+=("${FHS}/etc/${run}.include.list.${CFG_TYPE}")
+for include in ${INCLUDE[@]}   ; do
   if [ -f "$include" ]; then
     for i in $(egrep -v '^$|^#' "$include"); do
       CFG_MOUNTS+=("$i")

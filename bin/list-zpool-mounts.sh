@@ -11,16 +11,16 @@ SCRIPT=$(readlink -f $0)
 WHERE=${SCRIPT%/*}
 FHS=${WHERE%/*}
 
-SPOOL=$1
-/usr/sbin/zpool list -H -o name  | egrep -q "^${SPOOL}$"
-if [ $? -ne 0 ] ; then
-    echo "ERROR source pool $1 does not exist"
-    exit 1
-else
-    shift
-fi
 
 # zfs filesystems list with excludes
 eZFSs=$(cat ${FHS}/etc/zfs.fs-exclude | grep -v -E '^#|^$' | sed -e "s|__zpool__|${SPOOL}|g" | xargs | sed -e 's|^|^|' -e 's# #|^#g')
 
-/usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | egrep -v "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
+for i in "$@" ; do
+  SPOOL=$i
+  /usr/sbin/zpool list -H -o name  | egrep -q "^${SPOOL}$"
+  if [ $? -ne 0 ] ; then
+    echo "ERROR source pool $1 does not exist"
+    exit 1
+  fi
+  /usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | egrep -v "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
+done | grep -Ev '^none$'
