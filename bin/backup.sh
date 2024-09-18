@@ -54,7 +54,7 @@ case "${run}" in
     CMD[create]="backup -x"
     CMD[list]="snapshots -c"
     CMD[mount]="mount /mnt/${run}backup"
-    CMD[forget]="forget"
+    CMD[forget]="forget -c --group-by host,tag"
     CMD[compact]="prune"
     VAR[repo]="RESTIC_REPOSITORY"
     VAR[passcmd]="RESTIC_PASSWORD_COMMAND"
