@@ -84,6 +84,7 @@ show_env() {
     env | grep ^${run^^}
     echo ""
     echo "destination host \$CFG_DEST   : $CFG_DEST"
+    echo "destination user \$CFG_USER   : $CFG_USER"
     echo "source host      \$CFG_HOST   : $CFG_HOST"
     if [ -z "${ONLY}" ]; then
         echo "backup type      \$CFG_TYPE   : $CFG_TYPE"
@@ -230,6 +231,14 @@ if [ -z "${CFG_DEST}" ]; then
     exit 1
 fi
 
+# extract user from CFG_DEST
+if [[ ${CFG_DEST} =~ (^[a-z_][a-z0-9_-]{0,31})@(.*) ]]; then
+  CFG_USER="${BASH_REMATCH[1]}"
+  CFG_DEST="${BASH_REMATCH[2]}"
+else
+  CFG_USER="z${run}"
+fi
+
 # short destination hostname
 CFG_DEST_SHORT=${CFG_DEST%%.*}
 
@@ -238,7 +247,7 @@ CFG_S2D=${CFG_HOST}2${CFG_DEST_SHORT}
 
 # where is the repo (that should be relativ)
 case "${run}" in
-  borg)   export BORG_REPO=${BORG_REPO:-ssh://z${run}@${CFG_DEST}/~/hosts/${CFG_HOST}} ;;
+  borg)   export BORG_REPO=${BORG_REPO:-ssh://${CFG_USER}@${CFG_DEST}/~/hosts/${CFG_HOST}} ;;
   restic) export RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-rclone:} ;;
 esac
 
@@ -275,11 +284,21 @@ if [ $? -eq 0 ]; then
                 if [ "$CFG_REPO" = "rclone:" ]; then
                     # rclone without any remote/path is used for ssh with forced command
                     USE=rclone.program
-                    OPT[${USE}]="ssh zrestic@${CFG_DEST} -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY} forced-command"
+                    OPT[${USE}]="ssh ${CFG_USER}@${CFG_DEST} -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY} forced-command"
                 else
+                    regex="^sftp:(${CFG_USER}@)?([A-Za-z0-9\-\.]+):([0-9]+)?"
+                    if [[ $CFG_REPO =~ $regex ]]; then
+                      if [ -n "${BASH_REMATCH[3]}" ]; then
+                        SFTP_HOST="-p ${BASH_REMATCH[3]} ${CFG_USER}@${BASH_REMATCH[2]}"
+                      else
+                        SFTP_HOST="${CFG_USER}@${BASH_REMATCH[2]}"
+                      fi
+                    else
+                      SFTP_HOST="${CFG_USER}@${CFG_DEST}"
+                    fi
                     # extra sftp parameter
                     USE=sftp.command
-                    OPT[${USE}]="ssh zrestic@${CFG_DEST} -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY} -s sftp"
+                    OPT[${USE}]="ssh ${SFTP_HOST} -o IdentitiesOnly=yes -i ${HOME}/.ssh/${CFG_SSH_KEY} -s sftp"
                 fi
                 ;;
         esac
