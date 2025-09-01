@@ -47,7 +47,7 @@ from="<your source ip>",command="/usr/bin/borg serve --restrict-to-path ${DSTDIR
 read https://borgbackup.readthedocs.io/en/stable/usage/init.html
 ```
 # to source the config
-eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | egrep -v '^$|^#|^eval')
+eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | grep -Ev '^$|^#|^eval')
 # now initialise repo with the encryption key on the backup server
 borg init --encryption=repokey-blake2 ::
 # or  initialise repo with the encryption key on the local system
@@ -76,7 +76,7 @@ borg init --encryption=keyfile-blake2 ::
 # the passpharse you created in /root/.ssh/borg_<source>2<destination>.bb
 # the key you can export as follow
 # to source the config
-eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | egrep -v '^$|^#|^eval')
+eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | grep -Ev '^$|^#|^eval')
 borg key export :: /root/.ssh/borg_${CFG_S2D}.key
 # now save all the files for this backup pair
 scp /root/.ssh/borg_${CFG_S2D}* <where ever you want it to be save>
@@ -97,7 +97,7 @@ if you want to explore borg your self set the config with
 ```
 /opt/scripts-backup/bin/borgbackup.sh -1 -e
 # and now you can use borg with already configured environment
-env | egrep '^BORG|^CFG_'
+env | grep -E '^BORG|^CFG_'
 borg info
 borg list
 # dont forget to exit the shell to get rid of the borg config

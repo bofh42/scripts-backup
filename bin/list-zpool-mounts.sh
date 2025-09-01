@@ -17,10 +17,10 @@ eZFSs=$(cat ${FHS}/etc/zfs.fs-exclude | grep -v -E '^#|^$' | sed -e "s|__zpool__
 
 for i in "$@" ; do
   SPOOL=$i
-  /usr/sbin/zpool list -H -o name  | egrep -q "^${SPOOL}$"
+  /usr/sbin/zpool list -H -o name  | grep -Eq "^${SPOOL}$"
   if [ $? -ne 0 ] ; then
     echo "ERROR source pool $1 does not exist"
     exit 1
   fi
-  /usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | egrep -v "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
+  /usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | grep -Ev "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
 done | grep -Ev '^none$'

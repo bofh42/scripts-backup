@@ -4,7 +4,7 @@
 # this is a file used to exclude zfs filesystems from listing mounts
 # it will be used like this
 # eZFSs=$(cat ${FHS}/etc/zfs.fs-exclude | grep -v -E '^#|^$' | sed -e "s|__zpool__|${SPOOL}|g" | xargs | sed -e 's|^|^|' -e 's# #|^#g')
-# /usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | egrep -v "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
+# /usr/sbin/zfs list -t filesystem -r -H -o name ${SPOOL} | grep -Ev "$eZFSs" | while read line ; do /usr/sbin/zfs list -t filesystem -H -o mountpoint ${line} ; done
 
 # this has a extra backup with extra scripts
 __zpool__/share$

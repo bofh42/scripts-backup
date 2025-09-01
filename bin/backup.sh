@@ -13,7 +13,7 @@ export LANG=en_US.UTF-8
 print_log() { echo "$(printf '%(%FT%T)T' -1) $@"; }
 convertsecs() { ((h=${1}/3600)); ((m=(${1}%3600)/60)); ((s=${1}%60)); printf "%02d:%02d:%02d" $h $m $s; }
 need_cmd() { hash "$1" 2>/dev/null; if [ $? -ne 0 ]; then echo "ERROR: script ${0##*/} needs command $1"; exit 1; fi; }
-for i in readlink awk sed sort egrep ; do need_cmd $i ; done
+for i in readlink awk sed sort grep ; do need_cmd $i ; done
 
 SCRIPT=$(readlink -f $0)
 WHERE=${SCRIPT%/*}
@@ -415,7 +415,7 @@ INCLUDE+=("${FHS}/etc/${run}.include.list")
 INCLUDE+=("${FHS}/etc/${run}.include.list.${CFG_TYPE}")
 for include in ${INCLUDE[@]}   ; do
   if [ -f "$include" ]; then
-    for i in $(egrep -v '^$|^#' "$include"); do
+    for i in $(grep -Ev '^$|^#' "$include"); do
       CFG_MOUNTS+=("$i")
     done
   fi
