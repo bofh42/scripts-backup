@@ -73,7 +73,7 @@ borg init --encryption=keyfile-blake2 ::
 ## BACKUP !!!!!!!!! key and passphrase ##
 ## on the source host BACKUP the passphrase an the key
 ```
-# the passpharse you created in /root/.ssh/borg_<source>2<destination>.bb
+# the passpharse you created in /root/.ssh/borg_<source>2<destination>.pass
 # the key you can export as follow
 # to source the config
 eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | grep -Ev '^$|^#|^eval')
