@@ -33,34 +33,22 @@
 /var/log/lastlog
 /var/run
 /var/spool/postfix
+/var/spool/naemon
+/var/spool/nagios
 /var/tmp
 
-# no backup of container
-# /var/lib/containers/
-# /home/*/.local/share/containers/
+# no backup of container images or cache
+/var/lib/containers/cache/
+/var/lib/containers/storage/overlay*/
+/home/*/.local/share/containers/storage/overlay*/
+/home/*/.local/share/containers/cache/
 
 # no backup of flatpak
-# /var/lib/flatpak/
-# /home/*/.local/share/flatpak/
+/var/lib/flatpak/
+/home/*/.local/share/flatpak/
 
-# exclude from /home
-/root/.cache
-/home/*/.cache/BraveSoftware/
-/home/*/.cache/chromium/
-/home/*/.cache/containers/
-/home/*/.cache/flatpak/
-/home/*/.cache/go/
-/home/*/.cache/go-build/
-/home/*/.cache/google-chrome/
-/home/*/.cache/libvirt/
-/home/*/.cache/mc/
-/home/*/.cache/mesa_shader_cache/
-/home/*/.cache/mozilla/
-/home/*/.cache/pip/
-/home/*/.cache/qtshadercache-*/
-/home/*/.cache/samba/
-/home/*/.cache/thunderbird/
-/home/*/.cache/torbrowser/
-/home/*/.cache/virt-manager/
-/home/*/.local/share/Trash
-/home/*/.thumbnails/
+# no $HOME/.cache content or Trash
+/root/.cache/
+/root/.local/share/Trash/
+/home/*/.cache/
+/home/*/.local/share/Trash/
