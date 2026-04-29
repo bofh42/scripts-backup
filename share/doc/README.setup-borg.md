@@ -1,23 +1,30 @@
 
 ## to finish setup
 
-
 #### on the source host set destination host 1
-set CFG_DEST_1 in /opt/scripts-backup/etc/backup.conf
+```
+# git clone setup (not packaged)
+cd /opt
+git clone https://github.com/bofh42/scripts-backup
+cd /opt/scripts-backup/
+mkdir etc/
+cp share/config/borg.conf etc/
+```
+set CFG_DEST_1 in /opt/scripts-backup/etc/borg.conf
 if needed set optional parameter *_1=
 you can setup up to 9 target servers, but you need a cron jobs for every target server
 
-#### on the source host create key and password
-follow the instructions suggested for
-password an key creation when calling the following line 2 times
-```
-/opt/scripts-backup/bin/borgbackup.sh -1 -i
-```
 
+#### on the source host create config, key and password
+follow the instructions suggested for config, password
+and key creation when calling the following line most likely 4 times
+```
+/opt/scripts-backup/bin/borgbackup.sh -1 -e
+```
 
 #### on the target host
 ```
-yum install borgbackup-static
+dnf install /usr/bin/borg
 # one time setup on the borg server
 # if /data/borg is the place where you want the backups
 DSTDIR=/data/borg
@@ -36,15 +43,11 @@ chmod 0750 ${DSTDIR}/hosts/${SRCHOST} ; chown zborg:zborg ${DSTDIR}/hosts/${SRCH
 echo "# example # command=\"/usr/bin/borg serve --restrict-to-path ${DSTDIR}/hosts/${SRCHOST}\",restrict ssh-ed25519 AAAA.... your full key here ...." >>${DSTDIR}/.ssh/authorized_keys
 echo "# example # from=\"<your source ip>\",command=\"/usr/bin/borg serve --restrict-to-path ${DSTDIR}/hosts/${SRCHOST}\",restrict ssh-ed25519 AAAA.... your full key here ...." >>${DSTDIR}/.ssh/authorized_keys
 ```
-put in ${DSTDIR}/.ssh/authorized_keys
-the public key created before as follow
-command="/usr/bin/borg serve --restrict-to-path ${DSTDIR}/hosts/${SRCHOST}",restrict ssh-ed25519 AAAA.... your full key here ....
-or with source address
-from="<your source ip>",command="/usr/bin/borg serve --restrict-to-path ${DSTDIR}/hosts/${SRCHOST}",restrict ssh-ed25519 AAAA.... your full key here ....
+Edit your .ssh/authorized_keys on the target host with the correct data.
 
 
 #### on the source host initialize the archive
-read https://borgbackup.readthedocs.io/en/stable/usage/init.html
+check out [borg init](https://borgbackup.readthedocs.io/en/stable/usage/init.html)
 ```
 # to source the config
 eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | grep -Ev '^$|^#|^eval')
@@ -52,12 +55,23 @@ eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | grep -Ev '^$|^#|^eval')
 borg init --encryption=repokey-blake2 ::
 # or  initialise repo with the encryption key on the local system
 borg init --encryption=keyfile-blake2 ::
+# export the key AND save it
+borg key export :: /root/.ssh/borg_${CFG_S2D}.key
 # logout from the source server
 # (to get rid of sourced BORG_* variables)
 # login again
 # check with
 /opt/scripts-backup/bin/borgbackup.sh -1 -i
 # if it shows a valid archive your are done with this part
+```
+
+## BACKUP !!!!!!!!! key and passphrase ##
+## on the source host BACKUP the passphrase an the key
+## you NEED the passpharse and the key to restore
+```
+# now save all the files for this backup
+# /root/.ssh/borg_<source>2<destination>*
+scp /root/.ssh/borg_* <where ever you want it to be save>
 ```
 
 
@@ -67,19 +81,6 @@ borg init --encryption=keyfile-blake2 ::
 # adjust /opt/scripts-backup/etc/include.list
 # and now we do a backup of type hourly
 /opt/scripts-backup/bin/borgbackup.sh -1 -t hourly -v
-```
-
-
-## BACKUP !!!!!!!!! key and passphrase ##
-## on the source host BACKUP the passphrase an the key
-```
-# the passpharse you created in /root/.ssh/borg_<source>2<destination>.pass
-# the key you can export as follow
-# to source the config
-eval $(/opt/scripts-backup/bin/borgbackup.sh -1 -e | grep -Ev '^$|^#|^eval')
-borg key export :: /root/.ssh/borg_${CFG_S2D}.key
-# now save all the files for this backup pair
-scp /root/.ssh/borg_${CFG_S2D}* <where ever you want it to be save>
 ```
 
 
