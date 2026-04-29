@@ -10,8 +10,8 @@ cd /opt/scripts-backup/
 mkdir etc/
 cp share/config/borg.conf etc/
 ```
-set CFG_DEST_1 in /opt/scripts-backup/etc/borg.conf
-if needed set optional parameter *_1=
+set CFG_DEST_1 in /opt/scripts-backup/etc/borg.conf  
+if needed set optional parameter *_1=  
 you can setup up to 9 target servers, but you need a cron jobs for every target server
 
 
