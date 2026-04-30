@@ -52,3 +52,13 @@
 /root/.local/share/Trash/
 /home/*/.cache/
 /home/*/.local/share/Trash/
+
+# exclude vscode-server
+/root/.vscode-server
+/home/*/.vscode-server
+
+# exclude intellij and extensions
+/home/*/.gradle
+/home/*/.jdks
+/home/*/.java
+
