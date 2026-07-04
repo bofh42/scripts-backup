@@ -19,12 +19,14 @@
 /var/cache/dnf
 /var/cache/cups
 /var/cache/fwupd
+/var/cache/lpd
 /var/cache/man
 /var/cache/mock
 /var/cache/PackageKit
 /var/cache/powertop
 /var/cache/private
 /var/cache/restic
+/var/cache/rustic
 /var/cache/swcatalog
 /var/cache/yum
 /var/lib/clamav
@@ -33,9 +35,15 @@
 /var/log/lastlog
 /var/run
 /var/spool/postfix
-/var/spool/naemon
-/var/spool/nagios
 /var/tmp
+
+# monitoring spool, cache
+*/cache/naemon/
+*/cache/nagios/
+*/cache/thruk/
+*/spool/naemon/
+*/spool/nagios/
+*/spool/nagflux/
 
 # no backup of container images or cache
 /var/lib/containers/cache/
@@ -62,3 +70,14 @@
 /home/*/.jdks
 /home/*/.java
 
+# other waste of backup space
+/home/*/.cargo
+/home/*/go
+/home/*/.npm
+/home/*/.platformio
+# no AMD ROCm software
+/opt/rocm*
+# rpmbuild
+/home/*/rpmbuild
+# rpmbuild 42 config
+/home/*/oci/build/rpm*build
