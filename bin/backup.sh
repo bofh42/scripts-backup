@@ -171,6 +171,9 @@ while [ -n "$1" ]; do
         -i|--info) shift
             ONLY="${CMD[info]}"
             ;;
+        -s|--init-state) shift
+            ONLY="init-state"
+            ;;
         --server) shift
             CFG_DEST=$1
             shift
@@ -327,6 +330,8 @@ if [ -n "$CFG_NOT_QUIET" -a ! "${ONLY}" = "export" ]; then
     show_env
 fi
 
+STATE_FILE="/run/${run}backup-list-${CFG_S2D}"
+
 # just list backup or show archive info and exit
 if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
     echo ""
@@ -341,6 +346,16 @@ if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
     echo ""
     echo "export CFG_S2D=$CFG_S2D"
     show_env | grep ^${run^^} | sed -E 's|^|export |g ; s|=|="| ; s|$|"|g'
+    exit 0
+elif [ "${ONLY}" = "init-state" ]; then
+    if [ ! -f "$STATE_FILE" ]; then
+        echo "# initial state after boot as long as no new backup was done" >${STATE_FILE}
+        show_env | grep ^${run^^} | grep -E "^${run^^}_REPO|^${run^^}_RSH" >>${STATE_FILE}
+        run_command ${CMD[list]} >>${STATE_FILE}
+        print_log "INFO: state file initialized at $STATE_FILE"
+    else
+        print_log "INFO: state file already exists at $STATE_FILE"
+    fi
     exit 0
 elif [ -n "${ONLY}" ]; then
     run_command ${ONLY} ${CFG_NOT_QUIET} "$@"
@@ -430,7 +445,7 @@ RUN_EXIT=$?
 if [ $RUN_EXIT -gt 1 ]; then
     echo "ERROR: exit code $RUN_EXIT ${run} backup type ${CFG_TYPE} for ${CFG_HOST} ${CFG_MOUNTS[*]}"
 else
-    env | grep -E "^${run^^}_REPO|^${run^^}_RSH" | sort >/run/${run}backup-list-${CFG_S2D}
+    env | grep -E "^${run^^}_REPO|^${run^^}_RSH" | sort >${STATE_FILE}
     log_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
     if [ -n "${CFG_FORGET}" ]; then
         log_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
@@ -443,7 +458,7 @@ else
             run_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
         fi
     fi
-    run_command ${CMD[list]} >>/run/${run}backup-list-${CFG_S2D}
+    run_command ${CMD[list]} >>${STATE_FILE}
 fi
 
 [ -n "$CFG_NOT_QUIET" ] && echo -e "\ndone ${CFG_TYPE} ${run} backup for ${CFG_HOST}\n"
