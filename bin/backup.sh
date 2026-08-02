@@ -57,6 +57,7 @@ case "${run}" in
     CMD[forget]="forget -c --group-by host,tag"
     CMD[compact]="prune"
     CMD[show-locks]="--no-lock list locks"
+    CMD[unlock]="unlock"
     VAR[repo]="RESTIC_REPOSITORY"
     VAR[passcmd]="RESTIC_PASSWORD_COMMAND"
     ;;
@@ -79,6 +80,7 @@ cat << EOF
     -s|--init-state         : write state file only (if not exists)
 EOF
 [ -n "${CMD[show-locks]}" ] && echo "    -L|--show-locks         : just do ${run} list locks --no-lock"
+[ -n "${CMD[unlock]}" ] && echo "    -u|--unlock             : unlock the repository (remove stale locks)"
 cat << EOF
 
 EOF
@@ -187,6 +189,10 @@ while [ -n "$1" ]; do
         -L|--show-locks)
             ONLY="show-locks"
             [ -n "${CMD[show-locks]}" ] && shift || { echo ""; echo "ERROR parameter $1 not known"; usage; exit 1; }
+            ;;
+        -u|--unlock)
+            ONLY="${CMD[unlock]}"
+            [ -n "${CMD[unlock]}" ] && shift || { echo ""; echo "ERROR parameter $1 not known"; usage; exit 1; }
             ;;
         -[1-9])
             if [ -n "$CFG_DEST" ]; then
