@@ -56,6 +56,7 @@ case "${run}" in
     CMD[mount]="mount /mnt/${run}backup"
     CMD[forget]="forget -c --group-by host,tag"
     CMD[compact]="prune"
+    CMD[show-locks]="--no-lock list locks"
     VAR[repo]="RESTIC_REPOSITORY"
     VAR[passcmd]="RESTIC_PASSWORD_COMMAND"
     ;;
@@ -76,6 +77,9 @@ cat << EOF
     -m|--mount              : mount ${run} backup repo to /mnt/${run}backup
     -e|--export             : export setting to use ${run} on command line
     -s|--init-state         : write state file only (if not exists)
+EOF
+[ -n "${CMD[show-locks]}" ] && echo "    -L|--show-locks         : just do ${run} list locks --no-lock"
+cat << EOF
 
 EOF
 }
@@ -103,10 +107,11 @@ run_command() {
 }
 
 log_command() {
+  echo "" >>${STATE_FILE}
   if [ -n "${USE}" ]; then
-    echo "cmd: ${run} -o ${USE}=\"${OPT[$USE]}\" $@" >>/run/${run}backup-list-${CFG_S2D}
+    echo "cmd: ${run} -o ${USE}=\"${OPT[$USE]}\" $@" >>${STATE_FILE}
   else
-    echo "cmd: ${run} $@" >>/run/${run}backup-list-${CFG_S2D}
+    echo "cmd: ${run} $@" >>${STATE_FILE}
   fi
 }
 
@@ -179,6 +184,10 @@ while [ -n "$1" ]; do
             CFG_DEST=$1
             shift
             ;;
+        -L|--show-locks)
+            ONLY="show-locks"
+            [ -n "${CMD[show-locks]}" ] && shift || { echo ""; echo "ERROR parameter $1 not known"; usage; exit 1; }
+            ;;
         -[1-9])
             if [ -n "$CFG_DEST" ]; then
                 echo "ERROR just 1 server definition please"
@@ -208,7 +217,7 @@ while [ -n "$1" ]; do
             ;;
         *)
             echo ""
-            echo "ERROR parameter not known"
+            echo "ERROR parameter $1 not known"
             usage
             exit 1
             ;;
@@ -331,7 +340,7 @@ if [ -n "$CFG_NOT_QUIET" -a ! "${ONLY}" = "export" ]; then
     show_env
 fi
 
-STATE_FILE="/run/${run}backup-list-${CFG_S2D}"
+export STATE_FILE="/run/${run}backup-list-${CFG_S2D}"
 
 # just list backup or show archive info and exit
 if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
@@ -357,6 +366,13 @@ elif [ "${ONLY}" = "init-state" ]; then
     else
         print_log "INFO: state file already exists at $STATE_FILE"
     fi
+    exit 0
+elif [ "${ONLY}" = "show-locks" -a -n "${CMD[show-locks]}" -a "${run}" = "restic" ]; then
+    echo "# listing all restic locks"
+    for i in $(run_command ${CMD[show-locks]}); do
+      echo "# lock ${i}"
+      run_command cat lock --no-lock ${i}
+    done
     exit 0
 elif [ -n "${ONLY}" ]; then
     run_command ${ONLY} ${CFG_NOT_QUIET} "$@"
@@ -440,25 +456,31 @@ done
 
 [ -n "$CFG_NOT_QUIET" ] && echo "start ${run} backup type ${CFG_TYPE} for ${CFG_HOST}"
 
-run_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
+show_env | grep ^${run^^} | grep -E "^${run^^}_REPO|^${run^^}_RSH" >${STATE_FILE}
+log_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
+run_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]} 2> >(tee -a ${STATE_FILE} >&2)
 RUN_EXIT=$?
 
 if [ $RUN_EXIT -gt 1 ]; then
     echo "ERROR: exit code $RUN_EXIT ${run} backup type ${CFG_TYPE} for ${CFG_HOST} ${CFG_MOUNTS[*]}"
 else
-    env | grep -E "^${run^^}_REPO|^${run^^}_RSH" | sort >${STATE_FILE}
-    log_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
+    if [ -n "${CMD[show-locks]}" -a "${run}" = "restic" ]; then
+      log_command ${CMD[show-locks]} --quiet
+      IFS= read -d '' LOCKs < <(run_command ${CMD[show-locks]} --quiet | xargs -r | grep -Ev '^$')
+      echo "locks: ${LOCKs:-none}" >> ${STATE_FILE}
+    fi
     if [ -n "${CFG_FORGET}" ]; then
         log_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
-        run_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET}
+        run_command ${CMD[forget]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_FORGET} 2> >(tee -a ${STATE_FILE} >&2)
         RUN_EXIT=$?
         if [ $RUN_EXIT -gt 1 ]; then
             [ -n "$CFG_NOT_QUIET" ] && echo "WARN: exit code $RUN_EXIT ${run} ${CMD[forget]} for ${CFG_HOST} (maybe append only repo)"
-        elif [ "${CFG_TYPE}" = "monthly" ]; then
+        elif [ "${CFG_TYPE}" = "weekly" ]; then
             log_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
-            run_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET}
+            run_command ${CMD[compact]} ${CMD[extra]} ${CFG_NOT_QUIET} 2> >(tee -a ${STATE_FILE} >&2)
         fi
     fi
+    log_command ${CMD[list]}
     run_command ${CMD[list]} >>${STATE_FILE}
 fi
 
