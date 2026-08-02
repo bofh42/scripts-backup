@@ -75,6 +75,7 @@ cat << EOF
     -l|--list               : just do ${run} list
     -m|--mount              : mount ${run} backup repo to /mnt/${run}backup
     -e|--export             : export setting to use ${run} on command line
+    -s|--init-state         : write state file only (if not exists)
 
 EOF
 }
