@@ -75,6 +75,7 @@ cat << EOF
     -v|--verbose            : more output
     -i|--info               : just do ${run} info
     -l|--list               : just do ${run} list
+    -c|--compact            : just do ${run} ${CMD[compact]}
     -m|--mount              : mount ${run} backup repo to /mnt/${run}backup
     -e|--export             : export setting to use ${run} on command line
     -s|--init-state         : write state file only (if not exists)
@@ -178,6 +179,9 @@ while [ -n "$1" ]; do
             ;;
         -i|--info) shift
             ONLY="${CMD[info]}"
+            ;;
+        -c|--compact) shift
+            ONLY="${CMD[compact]}"
             ;;
         -s|--init-state) shift
             ONLY="init-state"
