@@ -8,8 +8,8 @@
 
 export LANG=en_US.UTF-8
 
-need_cmd() { hash "$1" 2>/dev/null; if [ $? -ne 0 ]; then echo "ERROR: script ${0##*/} needs command $1"; exit 1; fi; }
-for i in readlink uname find tail sed ; do need_cmd $i ; done
+need_cmd() { command -v "$1" >/dev/null 2>&1 ; if [ $? -ne 0 ]; then echo "ERROR: script ${0##*/} needs command $1"; exit 1; fi; }
+for i in readlink uname find tail sed egrep xargs wc ; do need_cmd $i ; done
 
 SCRIPT=$(readlink -f $0)
 WHERE=${SCRIPT%/*}
@@ -21,6 +21,8 @@ TYPE=${WHAT%backup.sh}
 # Info       : derived from check_borgbackup.sh by duc and unified by bofh42
 # Version    : 2.1.0 - 2026-04-22
 # Info       : added type other, default warn now 10h
+# Version    : 2.2.0 - 2026-08-04
+# Info       : added lock detection for restic
 
 # setting default exit values
 STATE_OK=0
@@ -102,10 +104,15 @@ case "${OS}" in
 esac
 
 for i in ${DEST} ; do
+  LOCKINFO=""
   case "${TYPE}" in
     other) LAST=$(tail -n 1 $i) ;;
     borg) LAST=$(tail -n 1 $i | sed -E 's|\..*||') ;;
-    restic) LAST=$(grep -E '^[0-9a-f]{8}' $i | tail -n 1 | awk '{print $2"T"$3}') ;;
+    restic)
+      LAST=$(grep -E '^[0-9a-f]{8}' $i | tail -n 1 | awk '{print $2"T"$3}')
+      LOCKs="$(grep '^locks:' $i | xargs -rn1 | grep -Ev '^(locks:|none)$' | wc -l)"
+      [ "${LOCKs:-0}" -gt 0 ] && LOCKINFO="_locks:${LOCKs}"
+      ;;
   esac
   if [ -z "${LAST}" ]; then
     echo "ERROR: could not find any last date for ${TYPE}"
@@ -114,13 +121,12 @@ for i in ${DEST} ; do
   server=${i#/run/*${TYPE}backup-list-${HOSTNAME%%.*}2}
   DIFF=$(echo "`date "+%s"` - `date -d $LAST "+%s"`" | bc)
   OLD=$(echo "$DIFF / 60 / 60 " | bc)
-  #echo "last backup of ${HOSTNAME%%.*} is ${OLD}h old on $server"
   if [ $OLD -ge $critical ]; then
-    PLUGCRIT+="${server}_${OLD}h "
-  elif [ $OLD -ge $warning ]; then
-    PLUGWARN+="${server}_${OLD}h "
+    PLUGCRIT+="${server}_${OLD}h${LOCKINFO} "
+  elif [ $OLD -ge $warning ] || [ -n "${LOCKINFO}" ] ; then
+    PLUGWARN+="${server}_${OLD}h${LOCKINFO} "
   else
-    PLUGOK+="${server}_${OLD}h "
+    PLUGOK+="${server}_${OLD}h${LOCKINFO} "
   fi
 done
 # at least warn if there is no state
