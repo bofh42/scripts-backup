@@ -1,0 +1,14 @@
+###
+### command includes for nrpe
+###
+
+###
+### NEVER edit this file, a softwareupdate overwrite it
+###
+
+command[check_borgbackup]=__libexecdir__/check_borgbackup.sh
+command[check_borgbackup_wc]=__libexecdir__/check_borgbackup.sh -w $ARG1$ -c $ARG2$
+command[check_resticbackup]=__libexecdir__/check_resticbackup.sh
+command[check_resticbackup_wc]=__libexecdir__/check_resticbackup.sh -w $ARG1$ -c $ARG2$
+command[check_otherbackup]=__libexecdir__/check_otherbackup.sh
+command[check_otherbackup_wc]=__libexecdir__/check_otherbackup.sh -w $ARG1$ -c $ARG2$
