@@ -1,7 +1,7 @@
 
 Summary:       Nagios check for borg and restic backup scripts
 Name:          nagios-plugins-backup
-Version:       2.2.0
+Version:       2.3.0
 Release:       1%{?dist}
 Group:         42/extras
 License:       GPLv2+
@@ -60,6 +60,10 @@ service nrpe reload >/dev/null 2>&1 || :
 %{_sysconfdir}/nagios/nrpe.d/plugin-backup.cfg
 
 %changelog
+* Wed Aug 12 2026 buivan <duc@buivan.de> - 2.3.0-1
+- added -x to exclude backup targets from the check
+- added nrpe commands check_*backup_wcx
+
 * Tue Aug 04 2026 Peter Tuschy <foss+rpm@bofh42.de> - 2.2.0-1
 - added lock detection for restic
 
