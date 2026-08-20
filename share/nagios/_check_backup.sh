@@ -23,6 +23,8 @@ TYPE=${WHAT%backup.sh}
 # Info       : added type other, default warn now 10h
 # Version    : 2.2.0 - 2026-08-04
 # Info       : added lock detection for restic
+# Version    : 2.3.0 - 2026-08-12
+# Info       : added -x to exclude targets from the check
 
 # setting default exit values
 STATE_OK=0
@@ -39,7 +41,7 @@ elif [ -f ${WHERE}/../utils.sh ] ; then
 fi
 
 usage() {
-  echo "Usage: $0 [-w <time in hours>] [-c <time in hours>]"
+  echo "Usage: $0 [-w <time in hours>] [-c <time in hours>] [-x <target>[,<target>...]]"
   exit $STATE_UNKNOWN
 }
 
@@ -57,6 +59,10 @@ while [ "$1" != "" ]; do
     -c)
       shift
       critical=$1
+      ;;
+    -x)
+      shift
+      exclude="${exclude}${exclude:+,}$1"
       ;;
     --help|-h)
       usage
@@ -105,6 +111,8 @@ esac
 
 for i in ${DEST} ; do
   LOCKINFO=""
+  server=${i#/run/*${TYPE}backup-list-${HOSTNAME%%.*}2}
+  [[ ",${exclude}," == *",${server},"* ]] && continue
   case "${TYPE}" in
     other) LAST=$(tail -n 1 $i) ;;
     borg) LAST=$(tail -n 1 $i | sed -E 's|\..*||') ;;
@@ -118,7 +126,6 @@ for i in ${DEST} ; do
     echo "ERROR: could not find any last date for ${TYPE}"
     exit 1
   fi
-  server=${i#/run/*${TYPE}backup-list-${HOSTNAME%%.*}2}
   DIFF=$(echo "`date "+%s"` - `date -d $LAST "+%s"`" | bc)
   OLD=$(echo "$DIFF / 60 / 60 " | bc)
   if [ $OLD -ge $critical ]; then
@@ -130,7 +137,7 @@ for i in ${DEST} ; do
   fi
 done
 # at least warn if there is no state
-if [ -z "$DEST" ]; then
+if [ -z "${PLUGCRIT}${PLUGWARN}${PLUGOK}" ]; then
   PLUGDATA+="WARNING no backup state in /run for ${TYPE}backup-list-${HOSTNAME%%.*}2* found"
   [ -z "$EXIT_STATE" ] && EXIT_STATE=$STATE_WARNING
 fi
