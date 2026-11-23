@@ -23,6 +23,8 @@ TYPE=${WHAT%backup.sh}
 # Info       : added type other, default warn now 10h
 # Version    : 2.2.0 - 2026-08-04
 # Info       : added lock detection for restic
+# Version    : 2.3.0 - 2026-11-23
+# Info       : skip state files with "nagios: ignore" (CFG_IGN_<id> nagios or all)
 
 # setting default exit values
 STATE_OK=0
@@ -105,6 +107,12 @@ esac
 
 for i in ${DEST} ; do
   LOCKINFO=""
+  server=${i#/run/*${TYPE}backup-list-${HOSTNAME%%.*}2}
+  # backup.sh writes this line for CFG_IGN_<id> with nagios or all
+  if grep -q '^nagios: ignore' $i; then
+    PLUGIGN+="${server} "
+    continue
+  fi
   case "${TYPE}" in
     other) LAST=$(tail -n 1 $i) ;;
     borg) LAST=$(tail -n 1 $i | sed -E 's|\..*||') ;;
@@ -118,7 +126,6 @@ for i in ${DEST} ; do
     echo "ERROR: could not find any last date for ${TYPE}"
     exit 1
   fi
-  server=${i#/run/*${TYPE}backup-list-${HOSTNAME%%.*}2}
   DIFF=$(echo "`date "+%s"` - `date -d $LAST "+%s"`" | bc)
   OLD=$(echo "$DIFF / 60 / 60 " | bc)
   if [ $OLD -ge $critical ]; then
@@ -146,6 +153,10 @@ fi
 if [ -n "$PLUGOK" ]; then
   PLUGDATA+="OK ${TYPE} backup $PLUGOK"
   [ -z "$EXIT_STATE" ] && EXIT_STATE=$STATE_OK
+fi
+if [ -n "$PLUGIGN" -a -z "$EXIT_STATE" ]; then
+  PLUGDATA+="OK ${TYPE} backup all targets ignored ${PLUGIGN}"
+  EXIT_STATE=$STATE_OK
 fi
 
 echo "${PLUGDATA}"
