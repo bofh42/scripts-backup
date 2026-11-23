@@ -7,3 +7,9 @@ To do recuring backup with borg and / or restic is here a script to do that.
 ## Installation
 * clone the repository
 * follow [README.setup-borg](share/doc/README.setup-borg.md) or [README.setup-restic](share/doc/README.setup-restic.md)
+
+## All targets in one cron job
+`bin/backup-all.sh <type> [tool ...]` runs every configured target (`CFG_DEST_[1-9]=` in `etc/<tool>.conf`)
+for one type (mandatory) and all tools or just the given ones (borg, restic).
+hourly, daily, weekly, monthly use forget (keep rules), any other type like `pre-reinstall` is kept until you delete it.
+Use [cron.example-all](share/doc/cron.example-all) instead of one cron line per target.
