@@ -28,6 +28,7 @@ usage: $0 <type> [tool ...] [-v|--verbose]
                               hourly, daily, weekly, monthly with forget (keep rules)
                               any other like pre-reinstall without forget
     tool                    : borg, restic, ... (default: every tool with a etc/<tool>.conf)
+                              targets with backup-all or all in CFG_IGN_<id> are skipped
     -v|--verbose            : passed on to <tool>backup.sh
     -h|--help               : this help
 
@@ -36,6 +37,9 @@ EOF
 
 # tool is usable if it has a config and a backup script
 tool_ok() { [ -f "${FHS}/etc/$1.conf" -a -x "${FHS}/bin/$1backup.sh" ]; }
+
+# CFG_IGN_<id>="a,b" in <conf>: true if the comma list has <word> or all
+ign_has() { local ign; ign=$(grep -m1 "^CFG_IGN_$2=" "$1" | cut -d= -f2- | tr -d "\"' "); [[ ",${ign}," == *",$3,"* || ",${ign}," == *",all,"* ]]; }
 
 # any type is fine (own types get no forget), it ends up in tags and archive names
 case "$1" in
@@ -79,6 +83,11 @@ FOUND=0
 for run in "${TOOLS[@]}"; do
   for id in $(grep -E "^CFG_DEST_[1-9]=[^\\$]+" "${FHS}/etc/${run}.conf" | awk -F= '{print $1}' | awk -F_ '{print $3}'); do
     FOUND=1
+    # CFG_IGN_<id> with backup-all or all skips it here, <tool>backup.sh -<id> still works
+    if ign_has "${FHS}/etc/${run}.conf" "${id}" backup-all; then
+      [ -n "$VERBOSE" ] && print_log "INFO: skip ${run}backup.sh -${id}, CFG_IGN_${id} has backup-all or all"
+      continue
+    fi
     [ -n "$VERBOSE" ] && print_log "INFO: start ${run}backup.sh -${id} -t ${TYPE}"
     "${FHS}/bin/${run}backup.sh" "-${id}" -t "${TYPE}" ${VERBOSE}
     rc=$?

@@ -208,7 +208,7 @@ while [ -n "$1" ]; do
             CFG_NR=${1#-}
             shift
             # is there a CFG_DEST definition
-            for i in CFG_DEST ${VAR[repo]} CFG_CREATE CFG_FORGET_HOURLY CFG_FORGET_DAILY CFG_FORGET_WEEKLY CFG_FORGET_MONTHLY CFG_FORGET_YEARLY ; do
+            for i in CFG_DEST ${VAR[repo]} CFG_CREATE CFG_IGN CFG_FORGET_HOURLY CFG_FORGET_DAILY CFG_FORGET_WEEKLY CFG_FORGET_MONTHLY CFG_FORGET_YEARLY ; do
                 eval $(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")
                 [ -n "$debug42" ] && echo "$(grep "^${i}_${CFG_NR}=" ${FHS}/etc/${run}.conf | sed -E "s|^${i}_[1-9]=|${i}=|")"
                 eval CFG_WHAT=\$${i}
@@ -241,6 +241,8 @@ done
 ## do we have a backup host
 if [ -z "$CFG_DEST" ]; then
     eval $(grep "^CFG_DEST_1=" ${FHS}/etc/${run}.conf | sed -E 's|^CFG_DEST_1=|CFG_DEST=|')
+    # without -1 the nagios ignore of target 1 should still work
+    [ -n "$CFG_DEST" ] && eval $(grep "^CFG_IGN_1=" ${FHS}/etc/${run}.conf | sed -E 's|^CFG_IGN_1=|CFG_IGN=|')
 fi
 
 # check for the target host
@@ -351,6 +353,9 @@ if [ -n "$CFG_NOT_QUIET" -a ! "${ONLY}" = "export" ]; then
 fi
 
 export STATE_FILE="/run/${run}backup-list-${CFG_S2D}"
+# CFG_IGN with nagios or all: marker line in the state file, the nagios check skips it
+IGN=",${CFG_IGN// /},"
+[[ "$IGN" == *",nagios,"* || "$IGN" == *",all,"* ]] && NAGIOS_IGN="nagios: ignore" || NAGIOS_IGN=""
 
 # just list backup or show archive info and exit
 if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
@@ -370,6 +375,7 @@ if [ -n "${ONLY}" -a "${ONLY}" = "export" ]; then
 elif [ "${ONLY}" = "init-state" ]; then
     if [ ! -f "$STATE_FILE" ]; then
         echo "# initial state after boot as long as no new backup was done" >${STATE_FILE}
+        [ -n "$NAGIOS_IGN" ] && echo "$NAGIOS_IGN" >>${STATE_FILE}
         show_env | grep ^${run^^} | grep -E "^${run^^}_REPO|^${run^^}_RSH" >>${STATE_FILE}
         run_command ${CMD[list]} >>${STATE_FILE}
         print_log "INFO: state file initialized at $STATE_FILE"
@@ -467,6 +473,7 @@ done
 [ -n "$CFG_NOT_QUIET" ] && echo "start ${run} backup type ${CFG_TYPE} for ${CFG_HOST}"
 
 show_env | grep ^${run^^} | grep -E "^${run^^}_REPO|^${run^^}_RSH" >${STATE_FILE}
+[ -n "$NAGIOS_IGN" ] && echo "$NAGIOS_IGN" >>${STATE_FILE}
 log_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]}
 run_command ${CMD[create]} ${CMD[extra]} ${CFG_NOT_QUIET} ${CFG_CREATE} ${CMD[exclude.file]} ${CMD[tag]} ${CFG_MOUNTS[*]} 2> >(tee -a ${STATE_FILE} >&2)
 RUN_EXIT=$?
