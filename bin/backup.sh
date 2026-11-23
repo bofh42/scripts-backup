@@ -473,6 +473,7 @@ RUN_EXIT=$?
 
 if [ $RUN_EXIT -gt 1 ]; then
     echo "ERROR: exit code $RUN_EXIT ${run} backup type ${CFG_TYPE} for ${CFG_HOST} ${CFG_MOUNTS[*]}"
+    SCRIPT_EXIT=$RUN_EXIT
 else
     if [ -n "${CMD[show-locks]}" -a "${run}" = "restic" ]; then
       log_command ${CMD[show-locks]} --quiet
@@ -495,3 +496,5 @@ else
 fi
 
 [ -n "$CFG_NOT_QUIET" ] && echo -e "\ndone ${CFG_TYPE} ${run} backup for ${CFG_HOST}\n"
+# explicit exit: quiet mode used to return 1 from the test above, backup errors returned 0 with -v
+exit ${SCRIPT_EXIT:-0}
